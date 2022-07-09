@@ -29,7 +29,10 @@ filenames = ["instances/knap-2-$i.txt" for i in 1:80]
 function run_tests(filenames)
     results = Dict()
     for (i, filename) in enumerate(filenames)
-        name, n, B, v, w = read_instance(filename)
+        if (i < 22)
+		continue
+	end
+	name, n, B, v, w = read_instance(filename)
         println("$i/$(length(filenames)) Rodando instância $name")
         value, items, root_bound, largest_bound, optimal_solution_count, elapsed_time = branch_and_bound_knapsack(n, B, v, w; time_limit=300)
         results[name] = Dict()
@@ -40,7 +43,7 @@ function run_tests(filenames)
         results[name]["largest_bound"] = largest_bound
         results[name]["solution_count"] = optimal_solution_count
         results[name]["elapsed_time"] = elapsed_time
-        write_json("results.json", results)
+        write_json("results_1.json", results)
         println("Melhor solução: $value - Maior bound: $largest_bound - Tempo de execução: $elapsed_time\n")
     end
 end
