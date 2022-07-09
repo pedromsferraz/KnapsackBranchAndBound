@@ -2,7 +2,7 @@ include("dynamic_programming.jl")
 include("backtracking.jl")
 include("branch_and_bound.jl")
 
-using JSON
+using JSON, DataFrames
 
 function read_instance(filename)
     file = readchomp(filename);
@@ -45,3 +45,19 @@ function run_tests(filenames)
     end
 end
 run_tests(filenames)
+
+function read_results(file::String)
+    results_json = JSON.parse(String(read(file)))
+    result_key = collect(keys(results_json))[1]
+    
+    df_results = DataFrame()
+    for result_key in collect(keys(results_json))
+        dict_keys = ["objective_value", "is_optimal", "elapsed_time", "root_bound", "largest_bound", "solution_count"]
+        key_value_pairs = ["name" => result_key, [value_key => results_json[result_key][value_key] for value_key in dict_keys]...]
+        df = DataFrame(key_value_pairs)
+        append!(df_results, df)
+    end
+    results_dict = Dict()
+
+    
+end
