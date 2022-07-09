@@ -1,39 +1,40 @@
-include("dynamic_programming.jl")
-include("backtracking.jl")
-include("branch_and_bound.jl")
+using Distributed
+addprocs(8)
 
-using JSON, DataFrames
+@everywhere include("dynamic_programming.jl")
+@everywhere include("backtracking.jl")
+@everywhere include("branch_and_bound.jl")
 
-function read_instance(filename)
-    file = readchomp(filename);
-    lines = split(file, r"\n")
-    rows = split.(lines[1:end], r" +")
-    n = parse(Int64, rows[1][1])
-    B = parse(Int64, rows[1][2])
-    name = rows[1][3]
+@everywhere begin
+    using JSON, DataFrames
 
-    n_rows = length(rows)
-    v = [parse.(Int64, rows[i][2]) for i in 2:n_rows]
-    w = [parse.(Int64, rows[i][3]) for i in 2:n_rows]
-    return name, n, B, v, w
-end
+    function read_instance(filename)
+        file = readchomp(filename);
+        lines = split(file, r"\n")
+        rows = split.(lines[1:end], r" +")
+        n = parse(Int64, rows[1][1])
+        B = parse(Int64, rows[1][2])
+        name = rows[1][3]
 
-function write_json(file::String, dict::Dict, ident = 4) 
-    open(file, "w") do f
-        JSON.print(f, dict, ident)
+        n_rows = length(rows)
+        v = [parse.(Int64, rows[i][2]) for i in 2:n_rows]
+        w = [parse.(Int64, rows[i][3]) for i in 2:n_rows]
+        return name, n, B, v, w
     end
-    return file
-end
 
-filenames = ["instances/knap-2-$i.txt" for i in 1:80]
-function run_tests(filenames)
-    results = Dict()
-    for (i, filename) in enumerate(filenames)
-        if (i < 22)
-		continue
-	end
-	name, n, B, v, w = read_instance(filename)
-        println("$i/$(length(filenames)) Rodando instância $name")
+    function write_json(file::String, dict::Dict, ident = 4) 
+        open(file, "w") do f
+            JSON.print(f, dict, ident)
+        end
+        return file
+    end
+
+    filenames = ["instances/knap-2-$i.txt" for i in 1:80]
+    function run_tests(i, filename)
+        results = Dict()
+        N = length(filenames)
+        name, n, B, v, w = read_instance(filename)
+        println("$i / $N Rodando instância $name")
         value, items, root_bound, largest_bound, optimal_solution_count, elapsed_time = branch_and_bound_knapsack(n, B, v, w; time_limit=3600)
         results[name] = Dict()
         results[name]["objective_value"] = value
@@ -43,11 +44,11 @@ function run_tests(filenames)
         results[name]["largest_bound"] = largest_bound
         results[name]["solution_count"] = optimal_solution_count
         results[name]["elapsed_time"] = elapsed_time
-        write_json("results_1.json", results)
+        write_json("results_machine_$i.json", results)
         println("Melhor solução: $value - Maior bound: $largest_bound - Tempo de execução: $elapsed_time\n")
     end
 end
-run_tests(filenames)
+pmap(x -> run_tests(x...), collect(enumerate(filenames)))
 
 function read_results(file::String)
     results_json = JSON.parse(String(read(file)))
