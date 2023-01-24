@@ -1,5 +1,4 @@
-using CPUTime
-
+# Encontra solução gulosa a ser utilizada como solução viável inicial
 function greedy_knapsack(n, B, v, w)
     sorted_items = sort([(v[i] / w[i], i) for i in 1:n], rev=true)
     capacity = B
@@ -16,65 +15,28 @@ function greedy_knapsack(n, B, v, w)
     return items
 end
 
-function fractional_knapsack(n, B, v, w)
-    sorted_items = sort([(v[i] / w[i], i) for i in 1:n], rev=true)
-    capacity = B
-    value = 0
-    for j in 1:n
-        _, i = sorted_items[j]
-        if w[i] <= capacity
-            value += v[i]
-            capacity -= w[i]
-        else
-            value += v[i] * (capacity / w[i])
-            return value
-        end
-    end
-    return value
-end
-
-function branch_and_bound_knapsack_naive(n, B, v, w)
-    current_max_value = -Inf64
-
-    function branch_and_bound_inner(i, value, weight)
-        current_max_value = max(current_max_value, value)
-        if i == 0
-            return value
-        end
-
-        # Calcula limite superior via mochila fracionário
-        upper_bound = floor(Int64, value + fractional_knapsack(i, B, v, w))
-        if upper_bound <= current_max_value
-            return current_max_value
-        end
-
-        # Caso não consiga podar, ramifica
-        ans1 = branch_and_bound_inner(i-1, value, weight)
-        ans2 = -Inf64
-        if weight + w[i] <= B
-            ans2 = branch_and_bound_inner(i-1, value + v[i], weight + w[i])
-        end
-        return max(ans1, ans2)
-    end
-    return branch_and_bound_inner(n, 0, 0)
-end
-
+# Algoritmo Branch and Bound
 function branch_and_bound_knapsack(n, B, v, w; time_limit=Inf64)
     t0 = time()
 
+    # Inicializa valores     
     greedy = greedy_knapsack(n, B, v, w)
     current_max_value = sum(v[greedy])
     current_best_solution = greedy
     optimal_solution_count = 1
 
+    # Upper bounds a serem retornados
     largest_upper_bound = -Inf64
     root_upper_bound = -Inf64
-
+    
+    # Ordena itens de acordo com densidade
     sorted_density = sort([(v[i] / w[i], i) for i in 1:n], rev=true)
     sorted_items = map(item -> item[2], sorted_density)
 
     should_print_tle = true
-
+    
+    # Relaxação de programação linear - problema da mochila fracionário
+    # Encontra relaxação para problema com itens 1:(i-1) fixos 
     function fractional_knapsack_items(initial_value, initial_weight, i)
         capacity = B - initial_weight
         value = initial_value
@@ -91,7 +53,9 @@ function branch_and_bound_knapsack(n, B, v, w; time_limit=Inf64)
         return value
     end
 
+    # Função recursiva para busca em profundidade
     function branch_and_bound_inner(i, items, value, weight)
+        # Atualiza melhor solução conhecida
         if value > current_max_value
             current_max_value = value
             current_best_solution = items
@@ -99,6 +63,8 @@ function branch_and_bound_knapsack(n, B, v, w; time_limit=Inf64)
         elseif value == current_max_value
             optimal_solution_count += 1
         end
+        
+        # Caso alcance uma folha, retorna
         if i == n+1
             return value, items
         end
@@ -130,6 +96,7 @@ function branch_and_bound_knapsack(n, B, v, w; time_limit=Inf64)
         items1 = []
         items2 = []
 
+        # Particiona em ordem aleatória        
         order = rand(0:1)
         if order == 1    
             if weight + w[current_item] <= B
@@ -147,6 +114,7 @@ function branch_and_bound_knapsack(n, B, v, w; time_limit=Inf64)
             end
         end
 
+        # Retorna melhor subproblema
         if ans1 >= ans2
             return ans1, items1
         else
@@ -160,5 +128,3 @@ function branch_and_bound_knapsack(n, B, v, w; time_limit=Inf64)
     t1 = time()
     return branch_and_bound_inner(1, [], 0, 0)..., root_upper_bound, largest_upper_bound, optimal_solution_count, t1 - t0
 end
-
-# value, items, root_bound, largest_bound, optimal_solution_count, elapsed_time = branch_and_bound_knapsack(n, B, v, w; time_limit = 100)
